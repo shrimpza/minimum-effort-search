@@ -1,0 +1,45 @@
+# top-most EditorConfig file
+root = true
+
+# Matches multiple files
+[*]
+
+# Set default charset
+charset = utf-8
+
+# Unix-style newlines with a newline ending every file
+end_of_line = lf
+
+# Forces hard line wrapping after the amount of characters specified
+max_line_length = 140
+
+# Denotes whether file should end with a newline
+insert_final_newline = true
+
+# Denotes whether whitespace is allowed at the end of lines
+trim_trailing_whitespace = true
+
+# Matches files with extension .java, .xml, .conf, .cfg, .js, .jsx and .sh
+[*.{java,xml,conf,cfg,js,jsx,sh}]
+
+# Indentation Style {space|tab}
+indent_style = tab
+
+# Indentation Size (in single-spaced characters)
+indent_size = 4
+
+# Width of a single tabstop character
+tab_width = 4
+
+
+# Matches files with extension .html and .json
+[*.{html,json,gradle}]
+
+# Indentation Style {space|tab}
+indent_style = tab
+
+# Indentation Size (in single-spaced characters)
+indent_size = 2
+
+# Width of a single tabstop character
+tab_width = 2
