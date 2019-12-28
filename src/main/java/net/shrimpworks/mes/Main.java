@@ -1,8 +1,140 @@
 package net.shrimpworks.mes;
 
+import java.beans.ConstructorProperties;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import io.redisearch.Schema;
+import io.redisearch.client.Client;
+import redis.clients.jedis.exceptions.JedisDataException;
+
 public class Main {
 
-	public static void main(String[] args) {
-		System.out.println("Hello world!");
+	public static void main(String[] args) throws IOException {
+		if (args.length < 1) {
+			System.err.println("Config file path not provided.");
+			System.err.println("Here is an example configuration to get started:");
+			sampleConfig();
+			System.exit(2);
+		}
+
+		Path configPath = Paths.get(args[0]).toAbsolutePath();
+		if (!Files.exists(configPath) || !Files.isRegularFile(configPath)) {
+			System.err.printf("Config file %s does not exist%n", configPath.toString());
+			System.exit(3);
+		}
+
+		Config config = JacksonMapper.YAML.object(configPath, Config.class);
+		String[] redis = config.redisearch.split(":");
+		Client client = new Client(config.index, redis[0], redis.length > 1 ? Integer.parseInt(redis[1]) : 6379);
+		try {
+			client.createIndex(config.schema.toSchema(), Client.IndexOptions.defaultOptions());
+		} catch (JedisDataException je) {
+			if (je.getMessage().contains("already exists")) {
+				// if the index already exists, we can make an attempt at adding fields (there's no api for deleting fields)
+				List<List<Object>> fields = (List<List<Object>>)client.getInfo().get("fields");
+				Set<String> fieldNames = fields.stream()
+											   .map(f -> new String((byte[])f.get(0), StandardCharsets.UTF_8))
+											   .collect(Collectors.toSet());
+				System.out.println(fieldNames);
+				client.alterIndex(config.schema.fields.stream()
+													  .filter(f -> !fieldNames.contains(f.name))
+													  .map(RediSearchField::toField)
+													  .toArray(Schema.Field[]::new));
+			} else {
+				throw je;
+			}
+		}
+	}
+
+	public static void sampleConfig() throws IOException {
+		Config config = new Config("example", "localhost:6379", "0.0.0.0:8080",
+								   new RediSearchSchema(List.of(
+									   new RediSearchField(Schema.FieldType.FullText, "title", true, false, 5.0, false, null),
+									   new RediSearchField(Schema.FieldType.FullText, "body", false, false, 1.0, false, null),
+									   new RediSearchField(Schema.FieldType.Numeric, "price", true, true, 1.0, false, null)
+								   ))
+		);
+		System.out.println(JacksonMapper.YAML.string(config));
+	}
+
+	public static class Config {
+
+		public final String index;
+		public final String redisearch;
+		public final String bindAddress;
+		public final RediSearchSchema schema;
+
+		@ConstructorProperties({ "index", "redisearch", "bindAddress", "schema" })
+		public Config(String index, String redisearch, String bindAddress, RediSearchSchema schema) {
+			this.index = index;
+			this.redisearch = redisearch;
+			this.bindAddress = bindAddress;
+			this.schema = schema;
+		}
+	}
+
+	public static class RediSearchSchema {
+
+		public List<RediSearchField> fields;
+
+		@ConstructorProperties("fields")
+		public RediSearchSchema(List<RediSearchField> fields) {
+			this.fields = fields;
+		}
+
+		public Schema toSchema() {
+			Schema schema = new Schema();
+			fields.forEach(f -> schema.addField(f.toField()));
+			return schema;
+		}
+	}
+
+	public static class RediSearchField {
+
+		public final Schema.FieldType type;
+		public final String name;
+
+		public final boolean sortable;
+		public final boolean noIndex;
+
+		public final double weight;
+		public final boolean noStem;
+
+		@JsonInclude(value = JsonInclude.Include.NON_EMPTY, content = JsonInclude.Include.NON_NULL)
+		public final String separator;
+
+		@ConstructorProperties({ "type", "name", "sortable", "noIndex", "weight", "noStem", "separator" })
+		public RediSearchField(
+			Schema.FieldType type, String name, boolean sortable, boolean noIndex, double weight, boolean noStem, String separator
+		) {
+			this.type = type;
+			this.name = name;
+			this.sortable = sortable;
+			this.noIndex = noIndex;
+			this.weight = weight;
+			this.noStem = noStem;
+			this.separator = separator;
+		}
+
+		public Schema.Field toField() {
+			switch (type) {
+				case FullText:
+					return new Schema.TextField(name, weight, sortable, noStem, noIndex);
+				case Tag:
+					return new Schema.TagField(name, separator, sortable);
+				case Numeric:
+				case Geo:
+				default:
+					return new Schema.Field(name, type, sortable, noIndex);
+			}
+		}
 	}
 }
