@@ -2,20 +2,27 @@ package net.shrimpworks.mes;
 
 import java.beans.ConstructorProperties;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.redisearch.Schema;
 import io.redisearch.client.Client;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import redis.clients.jedis.exceptions.JedisDataException;
 
 public class Main {
+
+	private static final Logger logger = LoggerFactory.getLogger(Main.class);
 
 	public static void main(String[] args) throws IOException {
 		if (args.length < 1) {
@@ -43,20 +50,34 @@ public class Main {
 				Set<String> fieldNames = fields.stream()
 											   .map(f -> new String((byte[])f.get(0), StandardCharsets.UTF_8))
 											   .collect(Collectors.toSet());
-				System.out.println(fieldNames);
-				client.alterIndex(config.schema.fields.stream()
-													  .filter(f -> !fieldNames.contains(f.name))
-													  .map(RediSearchField::toField)
-													  .toArray(Schema.Field[]::new));
+				Schema.Field[] newFields = config.schema.fields.stream()
+															   .filter(f -> !fieldNames.contains(f.name))
+															   .map(RediSearchField::toField)
+															   .toArray(Schema.Field[]::new);
+				// TODO if any change in fields, client.dropIndex(keepDocuments) - needs to be implemented in client
+				if (newFields.length > 0) {
+					logger.info("Adding new fields to index: {}", Arrays.stream(newFields).map(f -> f.name).collect(Collectors.joining()));
+					client.alterIndex();
+				}
 			} else {
 				throw je;
 			}
 		}
+
+		// web service startup
+		String[] bind = config.bindAddress.split(":");
+		API api = new API(InetSocketAddress.createUnresolved(bind[0], Integer.parseInt(bind[1])), client);
+
+		// close running services
+		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+			client.close();
+			api.close();
+		}));
 	}
 
 	public static void sampleConfig() throws IOException {
 		Config config = new Config("example", "localhost:6379", "0.0.0.0:8080",
-								   new RediSearchSchema(List.of(
+								   new RediSearchSchema(Set.of(
 									   new RediSearchField(Schema.FieldType.FullText, "title", true, false, 5.0, false, null),
 									   new RediSearchField(Schema.FieldType.FullText, "body", false, false, 1.0, false, null),
 									   new RediSearchField(Schema.FieldType.Numeric, "price", true, true, 1.0, false, null)
@@ -83,10 +104,10 @@ public class Main {
 
 	public static class RediSearchSchema {
 
-		public List<RediSearchField> fields;
+		public Set<RediSearchField> fields;
 
 		@ConstructorProperties("fields")
-		public RediSearchSchema(List<RediSearchField> fields) {
+		public RediSearchSchema(Set<RediSearchField> fields) {
 			this.fields = fields;
 		}
 
@@ -105,6 +126,7 @@ public class Main {
 		public final boolean sortable;
 		public final boolean noIndex;
 
+		@JsonProperty(defaultValue = "1")
 		public final double weight;
 		public final boolean noStem;
 
