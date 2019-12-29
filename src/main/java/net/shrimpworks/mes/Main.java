@@ -57,7 +57,7 @@ public class Main {
 				// TODO if any change in fields, client.dropIndex(keepDocuments) - needs to be implemented in client
 				if (newFields.length > 0) {
 					logger.info("Adding new fields to index: {}", Arrays.stream(newFields).map(f -> f.name).collect(Collectors.joining()));
-					client.alterIndex();
+					client.alterIndex(newFields);
 				}
 			} else {
 				throw je;

@@ -5,13 +5,17 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayDeque;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonParseException;
 import io.redisearch.Document;
 import io.redisearch.Query;
+import io.redisearch.SearchResult;
 import io.redisearch.client.AddOptions;
 import io.redisearch.client.Client;
 import io.undertow.Handlers;
@@ -24,6 +28,7 @@ import io.undertow.util.StatusCodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xnio.Options;
+import redis.clients.jedis.exceptions.JedisDataException;
 
 public class API implements Closeable {
 
@@ -90,7 +95,11 @@ public class API implements Closeable {
 
 	private HttpHandler searchHandler() {
 		return (exchange) -> {
-			final String query = exchange.getQueryParameters().getOrDefault("q", new ArrayDeque<>()).getFirst();
+			final String query = exchange.getQueryParameters().getOrDefault("q", new ArrayDeque<>(Set.of(""))).getFirst();
+			final int offset = Integer.parseInt(exchange.getQueryParameters().getOrDefault("offset", new ArrayDeque<>(Set.of("0")))
+														.getFirst());
+			final int limit = Integer.parseInt(exchange.getQueryParameters().getOrDefault("limit", new ArrayDeque<>(Set.of("10")))
+													   .getFirst());
 
 			exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
 
@@ -98,8 +107,15 @@ public class API implements Closeable {
 			exchange.dispatch(() -> {
 				logger.info("Searching for query {}", query);
 				try {
-					exchange.getResponseSender().send(JacksonMapper.JSON.string(client.search(new Query(query))));
+					SearchResult searchResult = client.search(new Query(query).limit(offset, limit));
+					exchange.getResponseSender().send(
+						JacksonMapper.JSON.string(SearchResults.fromSearchResult(searchResult, offset, limit))
+					);
+				} catch (JedisDataException e) {
+					logger.error("Search failure", e);
+					exchange.setStatusCode(StatusCodes.INTERNAL_SERVER_ERROR);
 				} catch (IOException e) {
+					logger.error("Failed to process request", e);
 					exchange.setStatusCode(StatusCodes.INTERNAL_SERVER_ERROR);
 				} finally {
 					exchange.endExchange();
@@ -129,6 +145,7 @@ public class API implements Closeable {
 				} catch (JsonParseException e) {
 					exchange.setStatusCode(StatusCodes.BAD_REQUEST);
 				} catch (IOException e) {
+					logger.error("Failed to process request", e);
 					exchange.setStatusCode(StatusCodes.INTERNAL_SERVER_ERROR);
 				} finally {
 					exchange.endExchange();
@@ -164,10 +181,10 @@ public class API implements Closeable {
 
 	public static class AddRequest {
 
-		public final Set<AddDocument> docs;
+		public final List<AddDocument> docs;
 
 		@ConstructorProperties("docs")
-		public AddRequest(Set<AddDocument> docs) {
+		public AddRequest(List<AddDocument> docs) {
 			this.docs = docs;
 		}
 	}
@@ -190,6 +207,39 @@ public class API implements Closeable {
 
 		public Document toDocument() {
 			return new Document(id, fields, score, payload);
+		}
+
+		public static AddDocument fromDocument(Document doc) {
+			Map<String, Object> fields = new HashMap<>();
+			doc.getProperties().forEach(e -> fields.put(e.getKey(), e.getValue()));
+			return new AddDocument(
+				doc.getId(),
+				fields,
+				doc.getScore(),
+				doc.getPayload()
+			);
+		}
+	}
+
+	public static class SearchResults {
+
+		public final List<AddDocument> docs;
+		public final long totalResults;
+		public final int offset;
+		public final int limit;
+
+		public SearchResults(List<AddDocument> docs, long totalResults, int offset, int limit) {
+			this.docs = docs;
+			this.totalResults = totalResults;
+			this.offset = offset;
+			this.limit = limit;
+		}
+
+		public static SearchResults fromSearchResult(SearchResult result, int offset, int limit) {
+			return new SearchResults(
+				result.docs.stream().map(AddDocument::fromDocument).collect(Collectors.toList()),
+				result.totalResults,
+				offset, limit);
 		}
 	}
 }

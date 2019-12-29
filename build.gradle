@@ -110,10 +110,10 @@ docker {
 		ports = [8081]
 		jvmArgs = ['-Xms512m']
 
-		registryCredentials {
-			username = "${System.env.GH_USER}"
-			password = "${System.env.GH_TOKEN}"
-		}
+//		registryCredentials {
+//			username = "${System.env.GH_USER}"
+//			password = "${System.env.GH_TOKEN}"
+//		}
 	}
 }
 
