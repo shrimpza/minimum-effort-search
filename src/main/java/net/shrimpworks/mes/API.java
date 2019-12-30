@@ -21,9 +21,11 @@ import io.redisearch.client.Client;
 import io.undertow.Handlers;
 import io.undertow.Undertow;
 import io.undertow.server.HttpHandler;
+import io.undertow.server.HttpServerExchange;
 import io.undertow.server.RoutingHandler;
 import io.undertow.server.handlers.encoding.EncodingHandler;
 import io.undertow.util.Headers;
+import io.undertow.util.HttpString;
 import io.undertow.util.StatusCodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,13 +46,16 @@ public class API implements Closeable {
 
 	private final Undertow server;
 	private final Client client;
+	private final String allowOrigins;
 
-	public API(InetSocketAddress bindAddress, Client client) {
+	public API(InetSocketAddress bindAddress, Client client, String allowOrigin) {
 		this.client = client;
+		this.allowOrigins = allowOrigin;
 
 		RoutingHandler handler = Handlers.routing()
 										 .add("GET", HTTP_STATUS, statusHandler())
 										 .add("GET", HTTP_SEARCH, searchHandler())
+										 .add("OPTIONS", HTTP_SEARCH, corsOptionsHandler("GET, OPTIONS"))
 										 .add("POST", HTTP_ADD, addHandler())
 										 .add("POST", HTTP_ADD_BATCH, addBatchHandler());
 
@@ -74,6 +79,19 @@ public class API implements Closeable {
 	@Override
 	public void close() {
 		this.server.stop();
+	}
+
+	private HttpHandler corsOptionsHandler(String methods) {
+		return (exchange) -> {
+			corsHeaders(exchange, methods);
+			exchange.getResponseSender().close();
+		};
+	}
+
+	private void corsHeaders(HttpServerExchange exchange, String methods) {
+		exchange.getResponseHeaders()
+				.put(new HttpString("Access-Control-Allow-Origin"), allowOrigins)
+				.put(new HttpString("Access-Control-Allow-Methods"), methods);
 	}
 
 	private HttpHandler statusHandler() {
@@ -102,6 +120,7 @@ public class API implements Closeable {
 													   .getFirst());
 
 			exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+			corsHeaders(exchange, "GET, OPTIONS");
 
 			// attempt to serve serve from storage, otherwise hit the monitor directly
 			exchange.dispatch(() -> {

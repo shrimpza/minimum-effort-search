@@ -66,7 +66,7 @@ public class Main {
 
 		// web service startup
 		String[] bind = config.bindAddress.split(":");
-		API api = new API(InetSocketAddress.createUnresolved(bind[0], Integer.parseInt(bind[1])), client);
+		API api = new API(InetSocketAddress.createUnresolved(bind[0], Integer.parseInt(bind[1])), client, config.corsAllowOrigins);
 
 		// close running services
 		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -76,13 +76,11 @@ public class Main {
 	}
 
 	public static void sampleConfig() throws IOException {
-		Config config = new Config("example", "localhost:6379", "0.0.0.0:8080",
-								   new RediSearchSchema(Set.of(
-									   new RediSearchField(Schema.FieldType.FullText, "title", true, false, 5.0, false, null),
-									   new RediSearchField(Schema.FieldType.FullText, "body", false, false, 1.0, false, null),
-									   new RediSearchField(Schema.FieldType.Numeric, "price", true, true, 1.0, false, null)
-								   ))
-		);
+		Config config = new Config("example", "localhost:6379", "0.0.0.0:8080", "*", new RediSearchSchema(Set.of(
+			new RediSearchField(Schema.FieldType.FullText, "title", true, false, 5.0, false, null),
+			new RediSearchField(Schema.FieldType.FullText, "body", false, false, 1.0, false, null),
+			new RediSearchField(Schema.FieldType.Numeric, "price", true, true, 1.0, false, null)
+		)));
 		System.out.println(JacksonMapper.YAML.string(config));
 	}
 
@@ -91,13 +89,15 @@ public class Main {
 		public final String index;
 		public final String redisearch;
 		public final String bindAddress;
+		public final String corsAllowOrigins;
 		public final RediSearchSchema schema;
 
-		@ConstructorProperties({ "index", "redisearch", "bindAddress", "schema" })
-		public Config(String index, String redisearch, String bindAddress, RediSearchSchema schema) {
+		@ConstructorProperties({ "index", "redisearch", "bindAddress", "corsAllowOrigin", "schema" })
+		public Config(String index, String redisearch, String bindAddress, String corsAllowOrigin, RediSearchSchema schema) {
 			this.index = index;
 			this.redisearch = redisearch;
 			this.bindAddress = bindAddress;
+			this.corsAllowOrigins = corsAllowOrigin;
 			this.schema = schema;
 		}
 	}
