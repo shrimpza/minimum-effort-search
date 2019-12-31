@@ -1,6 +1,8 @@
-name: Build
+name: Publish
 
-on: [push, pull_request]
+on:
+  release:
+    types: [published]
 
 jobs:
   build:
@@ -13,4 +15,7 @@ jobs:
       with:
         java-version: 11
     - name: Build Java
-      run: ./gradlew execJar
+      env:
+        GH_USER: ${{ secrets.GH_USER }}
+        GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      run: ./gradlew execJar publish
