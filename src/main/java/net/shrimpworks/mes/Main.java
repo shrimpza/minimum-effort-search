@@ -10,6 +10,7 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -66,7 +67,8 @@ public class Main {
 
 		// web service startup
 		String[] bind = config.bindAddress.split(":");
-		API api = new API(InetSocketAddress.createUnresolved(bind[0], Integer.parseInt(bind[1])), client, config.corsAllowOrigins);
+		API api = new API(InetSocketAddress.createUnresolved(bind[0], Integer.parseInt(bind[1])), client, config.corsAllowOrigins,
+						  config.submissionToken);
 
 		// close running services
 		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -76,11 +78,12 @@ public class Main {
 	}
 
 	public static void sampleConfig() throws IOException {
-		Config config = new Config("example", "localhost:6379", "0.0.0.0:8080", "*", new RediSearchSchema(Set.of(
-			new RediSearchField(Schema.FieldType.FullText, "title", true, false, 5.0, false, null),
-			new RediSearchField(Schema.FieldType.FullText, "body", false, false, 1.0, false, null),
-			new RediSearchField(Schema.FieldType.Numeric, "price", true, true, 1.0, false, null)
-		)));
+		Config config = new Config("example", "localhost:6379", "0.0.0.0:8080", "*", UUID.randomUUID().toString(),
+								   new RediSearchSchema(Set.of(
+									   new RediSearchField(Schema.FieldType.FullText, "title", true, false, 5.0, false, null),
+									   new RediSearchField(Schema.FieldType.FullText, "body", false, false, 1.0, false, null),
+									   new RediSearchField(Schema.FieldType.Numeric, "price", true, true, 1.0, false, null)
+								   )));
 		System.out.println(JacksonMapper.YAML.string(config));
 	}
 
@@ -90,14 +93,17 @@ public class Main {
 		public final String redisearch;
 		public final String bindAddress;
 		public final String corsAllowOrigins;
+		public final String submissionToken;
 		public final RediSearchSchema schema;
 
-		@ConstructorProperties({ "index", "redisearch", "bindAddress", "corsAllowOrigin", "schema" })
-		public Config(String index, String redisearch, String bindAddress, String corsAllowOrigin, RediSearchSchema schema) {
+		@ConstructorProperties({ "index", "redisearch", "bindAddress", "corsAllowOrigin", "submissionToken", "schema" })
+		public Config(String index, String redisearch, String bindAddress, String corsAllowOrigin, String submissionToken,
+					  RediSearchSchema schema) {
 			this.index = index;
 			this.redisearch = redisearch;
 			this.bindAddress = bindAddress;
 			this.corsAllowOrigins = corsAllowOrigin;
+			this.submissionToken = submissionToken;
 			this.schema = schema;
 		}
 	}

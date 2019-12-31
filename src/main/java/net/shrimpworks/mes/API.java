@@ -8,6 +8,7 @@ import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -20,9 +21,10 @@ import io.redisearch.client.AddOptions;
 import io.redisearch.client.Client;
 import io.undertow.Handlers;
 import io.undertow.Undertow;
+import io.undertow.predicate.Predicate;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
-import io.undertow.server.RoutingHandler;
+import io.undertow.server.handlers.ResponseCodeHandler;
 import io.undertow.server.handlers.encoding.EncodingHandler;
 import io.undertow.util.Headers;
 import io.undertow.util.HttpString;
@@ -48,19 +50,25 @@ public class API implements Closeable {
 	private final Client client;
 	private final String allowOrigins;
 
-	public API(InetSocketAddress bindAddress, Client client, String allowOrigin) {
+	public API(InetSocketAddress bindAddress, Client client, String allowOrigin, String submissionToken) {
 		this.client = client;
 		this.allowOrigins = allowOrigin;
 
-		RoutingHandler handler = Handlers.routing()
-										 .add("GET", HTTP_STATUS, statusHandler())
-										 .add("GET", HTTP_SEARCH, searchHandler())
-										 .add("OPTIONS", HTTP_SEARCH, corsOptionsHandler("GET, OPTIONS"))
-										 .add("POST", HTTP_ADD, addHandler())
-										 .add("POST", HTTP_ADD_BATCH, addBatchHandler());
+		Predicate tokenCheck = ex -> {
+			String auth = Optional.ofNullable(ex.getRequestHeaders().getFirst("Authorization")).orElse("");
+			System.out.println(auth);
+			return (auth.equals(submissionToken) || auth.equals("bearer " + submissionToken));
+		};
+
+		HttpHandler handlers = Handlers.routing()
+									   .add("GET", HTTP_STATUS, statusHandler())
+									   .add("GET", HTTP_SEARCH, searchHandler())
+									   .add("OPTIONS", HTTP_SEARCH, corsOptionsHandler("GET, OPTIONS"))
+									   .add("POST", HTTP_ADD, orUnauthorised(tokenCheck, addHandler()))
+									   .add("POST", HTTP_ADD_BATCH, orUnauthorised(tokenCheck, addBatchHandler()));
 
 		// provides deflate and gzip encoding on handlers it wraps
-		HttpHandler encodingHandler = new EncodingHandler.Builder().build(null).wrap(handler);
+		HttpHandler encodingHandler = new EncodingHandler.Builder().build(null).wrap(handlers);
 
 		this.server = Undertow.builder()
 							  .setWorkerOption(Options.WORKER_IO_THREADS, WORKER_IO_THREADS)
@@ -74,6 +82,10 @@ public class API implements Closeable {
 		this.server.start();
 
 		logger.info("Server started on host {}", bindAddress);
+	}
+
+	private HttpHandler orUnauthorised(Predicate predicate, HttpHandler handler) {
+		return Handlers.predicate(predicate, handler, ResponseCodeHandler.HANDLE_403);
 	}
 
 	@Override
