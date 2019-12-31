@@ -56,7 +56,6 @@ public class API implements Closeable {
 
 		Predicate tokenCheck = ex -> {
 			String auth = Optional.ofNullable(ex.getRequestHeaders().getFirst("Authorization")).orElse("");
-			System.out.println(auth);
 			return (auth.equals(submissionToken) || auth.equals("bearer " + submissionToken));
 		};
 
