@@ -3,7 +3,6 @@ plugins {
 	id 'application'
 	id 'maven-publish'
 	id 'jacoco'
-	id 'com.bmuschko.docker-java-application' version '6.0.0'
 }
 
 sourceCompatibility = '11'
@@ -96,24 +95,6 @@ publishing {
 			from components.java
 			artifact execJar
 		}
-	}
-}
-
-docker {
-	def image = "${System.env.IMAGE_URL}"
-	javaApplication {
-		baseImage = 'azul/zulu-openjdk-alpine:11-jre'
-		images = [
-			"${image}:latest",
-			"${image}:${version}"
-		]
-		ports = [8081]
-		jvmArgs = ['-Xms512m']
-
-//		registryCredentials {
-//			username = "${System.env.GH_USER}"
-//			password = "${System.env.GH_TOKEN}"
-//		}
 	}
 }
 

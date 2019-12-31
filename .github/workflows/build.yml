@@ -14,5 +14,8 @@ jobs:
         java-version: 11
     - name: Build Java
       run: ./gradlew execJar
-    - name: Build Docker
-      run: ./gradlew dockerBuildImage
+    - name: Publish
+      env:
+        GH_USER: ${{ secrets.GH_USER }}
+        GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      run: ./gradlew publish
