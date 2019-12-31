@@ -50,7 +50,7 @@ public class API implements Closeable {
 	private final Client client;
 	private final String allowOrigins;
 
-	public API(InetSocketAddress bindAddress, Client client, String allowOrigin, String submissionToken) {
+	public API(InetSocketAddress bindAddress, String rootPath, Client client, String allowOrigin, String submissionToken) {
 		this.client = client;
 		this.allowOrigins = allowOrigin;
 
@@ -60,11 +60,11 @@ public class API implements Closeable {
 		};
 
 		HttpHandler handlers = Handlers.routing()
-									   .add("GET", HTTP_STATUS, statusHandler())
-									   .add("GET", HTTP_SEARCH, searchHandler())
-									   .add("OPTIONS", HTTP_SEARCH, corsOptionsHandler("GET, OPTIONS"))
-									   .add("POST", HTTP_ADD, orUnauthorised(tokenCheck, addHandler()))
-									   .add("POST", HTTP_ADD_BATCH, orUnauthorised(tokenCheck, addBatchHandler()));
+									   .add("GET", rootPath + HTTP_STATUS, statusHandler())
+									   .add("GET", rootPath + HTTP_SEARCH, searchHandler())
+									   .add("OPTIONS", rootPath + HTTP_SEARCH, corsOptionsHandler("GET, OPTIONS"))
+									   .add("POST", rootPath + HTTP_ADD, orUnauthorised(tokenCheck, addHandler()))
+									   .add("POST", rootPath + HTTP_ADD_BATCH, orUnauthorised(tokenCheck, addBatchHandler()));
 
 		// provides deflate and gzip encoding on handlers it wraps
 		HttpHandler encodingHandler = new EncodingHandler.Builder().build(null).wrap(handlers);

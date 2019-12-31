@@ -67,8 +67,8 @@ public class Main {
 
 		// web service startup
 		String[] bind = config.bindAddress.split(":");
-		API api = new API(InetSocketAddress.createUnresolved(bind[0], Integer.parseInt(bind[1])), client, config.corsAllowOrigins,
-						  config.submissionToken);
+		API api = new API(InetSocketAddress.createUnresolved(bind[0], Integer.parseInt(bind[1])),
+						  config.rootPath, client, config.corsAllowOrigins, config.submissionToken);
 
 		// close running services
 		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -78,7 +78,7 @@ public class Main {
 	}
 
 	public static void sampleConfig() throws IOException {
-		Config config = new Config("example", "localhost:6379", "0.0.0.0:8080", "*", UUID.randomUUID().toString(),
+		Config config = new Config("example", "localhost:6379", "0.0.0.0:8080", "", "*", UUID.randomUUID().toString(),
 								   new RediSearchSchema(Set.of(
 									   new RediSearchField(Schema.FieldType.FullText, "title", true, false, 5.0, false, null),
 									   new RediSearchField(Schema.FieldType.FullText, "body", false, false, 1.0, false, null),
@@ -93,16 +93,19 @@ public class Main {
 		public final String index;
 		public final String redisearch;
 		public final String bindAddress;
+		public final String rootPath;
 		public final String corsAllowOrigins;
 		public final String submissionToken;
 		public final RediSearchSchema schema;
 
-		@ConstructorProperties({ "index", "redisearch", "bindAddress", "corsAllowOrigin", "submissionToken", "schema" })
-		public Config(String index, String redisearch, String bindAddress, String corsAllowOrigin, String submissionToken,
+		@ConstructorProperties({ "index", "redisearch", "bindAddress", "rootPath", "corsAllowOrigin", "submissionToken", "schema" })
+		public Config(String index, String redisearch, String bindAddress, String rootPath, String corsAllowOrigin,
+					  String submissionToken,
 					  RediSearchSchema schema) {
 			this.index = index;
 			this.redisearch = redisearch;
 			this.bindAddress = bindAddress;
+			this.rootPath = rootPath;
 			this.corsAllowOrigins = corsAllowOrigin;
 			this.submissionToken = submissionToken;
 			this.schema = schema;
