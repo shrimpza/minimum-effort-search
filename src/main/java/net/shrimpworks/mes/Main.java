@@ -82,7 +82,8 @@ public class Main {
 								   new RediSearchSchema(Set.of(
 									   new RediSearchField(Schema.FieldType.FullText, "title", true, false, 5.0, false, null),
 									   new RediSearchField(Schema.FieldType.FullText, "body", false, false, 1.0, false, null),
-									   new RediSearchField(Schema.FieldType.Numeric, "price", true, true, 1.0, false, null)
+									   new RediSearchField(Schema.FieldType.Numeric, "price", true, true, 1.0, false, null),
+									   new RediSearchField(Schema.FieldType.Tag, "tags", false, false, 2.5, false, ",")
 								   )));
 		System.out.println(JacksonMapper.YAML.string(config));
 	}
