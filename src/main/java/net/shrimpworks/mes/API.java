@@ -137,7 +137,7 @@ public class API implements Closeable {
 			exchange.dispatch(() -> {
 				logger.info("Searching for query {}", query);
 				try {
-					SearchResult searchResult = client.search(new Query(query).limit(offset, limit));
+					SearchResult searchResult = client.search(new Query(query).limit(offset, limit).setWithScores());
 					exchange.getResponseSender().send(
 						JacksonMapper.JSON.string(SearchResults.fromSearchResult(searchResult, offset, limit))
 					);
