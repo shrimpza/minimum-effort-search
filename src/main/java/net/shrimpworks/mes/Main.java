@@ -37,6 +37,8 @@ public class Main {
 		if (!Files.exists(configPath) || !Files.isRegularFile(configPath)) {
 			System.err.printf("Config file %s does not exist%n", configPath.toString());
 			System.exit(3);
+		} else {
+			System.out.printf("Using configuration in file %s%n", configPath);
 		}
 
 		Config config = JacksonMapper.YAML.object(configPath, Config.class);
@@ -44,8 +46,10 @@ public class Main {
 		Client client = new Client(config.index, redis[0], redis.length > 1 ? Integer.parseInt(redis[1]) : 6379);
 		try {
 			client.createIndex(config.schema.toSchema(), Client.IndexOptions.defaultOptions());
+			System.out.printf("Created index %s%n", config.index);
 		} catch (JedisDataException je) {
 			if (je.getMessage().contains("already exists")) {
+				System.out.printf("Index %s already exists, updating%n", config.index);
 				// if the index already exists, we can make an attempt at adding fields (there's no api for deleting fields)
 				List<List<Object>> fields = (List<List<Object>>)client.getInfo().get("fields");
 				Set<String> fieldNames = fields.stream()

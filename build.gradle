@@ -32,8 +32,8 @@ repositories {
 }
 
 dependencies {
-	implementation 'com.redislabs:jredisearch:1.2.0'
-	implementation 'io.undertow:undertow-core:2.0.28.Final'
+	implementation 'com.redislabs:jredisearch:1.6.0'
+	implementation 'io.undertow:undertow-core:2.1.0.Final'
 
 	implementation 'com.fasterxml.jackson.core:jackson-databind:2.10.1'
 	implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.10.1'
