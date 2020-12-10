@@ -5,38 +5,53 @@ plugins {
 	id 'jacoco'
 }
 
-sourceCompatibility = '11'
-targetCompatibility = '11'
-
-def getVersionName = { String defaultVersion ->
-	try {
-		def stdout = new ByteArrayOutputStream()
-		exec {
-			commandLine 'git', 'describe', '--tags'
-			standardOutput = stdout
-		}
-		return stdout.toString().trim().replaceAll('([0-9]+\\.[0-9]+\\.[0-9]+)-([0-9]+).*', '$1-$2')
-	} catch (Exception ignored) {
-		return defaultVersion;
-	}
-}
-
 group = 'net.shrimpworks'
-version = getVersionName('0.0.1')
+version = "1.2"
 
 mainClassName = 'net.shrimpworks.mes.Main'
 
+compileJava {
+	options.release = 11
+}
+
+if (System.getenv().containsKey("DRONE_BUILD_NUMBER")) {
+	version = "${version}.${System.env.DRONE_BUILD_NUMBER}"
+}
+
 repositories {
-	mavenLocal()
 	mavenCentral()
+	maven {
+		url "https://code.shrimpworks.za.net/artefacts"
+	}
+}
+
+publishing {
+	repositories {
+		maven {
+			name = "ShrimpWorks"
+			url = 'https://code.shrimpworks.za.net/artefacts/'
+			authentication {
+				basic(BasicAuthentication)
+			}
+			credentials(PasswordCredentials) {
+				username = "${System.env.ARTEFACTS_USER}"
+				password = "${System.env.ARTEFACTS_PASSWORD}"
+			}
+		}
+	}
+	publications {
+		maven(MavenPublication) {
+			from components.java
+		}
+	}
 }
 
 dependencies {
-	implementation 'com.redislabs:jredisearch:1.6.0'
-	implementation 'io.undertow:undertow-core:2.1.0.Final'
+	implementation 'com.redislabs:jredisearch:2.0.0'
+	implementation 'io.undertow:undertow-core:2.2.3.Final'
 
-	implementation 'com.fasterxml.jackson.core:jackson-databind:2.10.1'
-	implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.10.1'
+	implementation 'com.fasterxml.jackson.core:jackson-databind:2.12.0'
+	implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.12.0'
 
 	implementation 'org.slf4j:slf4j-api:1.7.30'
 	implementation 'org.slf4j:slf4j-simple:1.7.30'
@@ -73,28 +88,6 @@ task execJar(type: Jar) {
 	// build the fat executable jar file
 	from {
 		configurations.runtimeClasspath.findAll { it.name.endsWith('jar') }.collect { zipTree(it) }
-	}
-}
-
-publishing {
-	repositories {
-		maven {
-			name = "GitHub"
-			url = "https://maven.pkg.github.com/${System.env.GH_USER}/${project.name}"
-			authentication {
-				basic(BasicAuthentication)
-			}
-			credentials(PasswordCredentials) {
-				username = "${System.env.GH_USER}"
-				password = "${System.env.GH_TOKEN}"
-			}
-		}
-	}
-	publications {
-		maven(MavenPublication) {
-			from components.java
-			artifact execJar
-		}
 	}
 }
 

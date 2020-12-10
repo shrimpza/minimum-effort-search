@@ -1,0 +1,39 @@
+kind: pipeline
+name: default
+type: docker
+
+steps:
+  - name: test
+    image: gradle:6.7.1-jdk11
+    commands:
+      - gradle test
+  - name: publish
+    image: gradle:6.7.1-jdk11
+    volumes:
+      - name: build-output
+        path: /tmp/build/jar/
+    environment:
+      ARTEFACTS_USER:
+        from_secret: ARTEFACTS_USER
+      ARTEFACTS_PASSWORD:
+        from_secret: ARTEFACTS_PASSWORD
+    commands:
+      - gradle execJar publish
+      - cp ./build/libs/* /tmp/build/jar/
+    when:
+      event: tag
+  - name: release
+    image: plugins/github-release
+    volumes:
+      - name: build-output
+        path: /tmp/build/jar/
+    settings:
+      api_key:
+        from_secret: GH_TOKEN
+      files: /tmp/build/jar/*
+    when:
+      event: tag
+
+volumes:
+  - name: build-output
+    temp: {}
