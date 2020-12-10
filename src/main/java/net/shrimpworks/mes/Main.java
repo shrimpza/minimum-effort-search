@@ -2,6 +2,7 @@ package net.shrimpworks.mes;
 
 import java.beans.ConstructorProperties;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -29,7 +30,7 @@ public class Main {
 		if (args.length < 1) {
 			System.err.println("Config file path not provided.");
 			System.err.println("Here is an example configuration to get started:");
-			sampleConfig();
+			sampleConfig(System.out);
 			System.exit(2);
 		}
 
@@ -81,7 +82,7 @@ public class Main {
 		}));
 	}
 
-	public static void sampleConfig() throws IOException {
+	public static void sampleConfig(PrintStream out) throws IOException {
 		Config config = new Config("example", "localhost:6379", "0.0.0.0:8080", "", "*", UUID.randomUUID().toString(),
 								   new RediSearchSchema(Set.of(
 									   new RediSearchField(Schema.FieldType.FullText, "title", true, false, 5.0, false, null),
@@ -89,7 +90,7 @@ public class Main {
 									   new RediSearchField(Schema.FieldType.Numeric, "price", true, true, 1.0, false, null),
 									   new RediSearchField(Schema.FieldType.Tag, "tags", false, false, 2.5, false, ",")
 								   )));
-		System.out.println(JacksonMapper.YAML.string(config));
+		out.println(JacksonMapper.YAML.string(config));
 	}
 
 	public static class Config {
