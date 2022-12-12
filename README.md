@@ -3,14 +3,14 @@
 A simple REST service exposing some RedisSearch functionality to support
 simple self-hosted site search functionality.
 
-## Requirements
+## Runtime Requirements
 
-- Java 11 JRE
+- Java 17 JRE
 - A [RediSearch](https://oss.redislabs.com/redisearch/) instance to connect to
 
 ## Build
 
-The project is built using Gradle:
+The project is built using Gradle and a Java 17 JDK:
 
 ```
 $ ./gradlew execJar

@@ -4,11 +4,12 @@ type: docker
 
 steps:
   - name: test
-    image: gradle:6.7.1-jdk11
+    image: gradle:7.6-jdk17-focal
     commands:
       - gradle test
+
   - name: publish
-    image: gradle:6.7.1-jdk11
+    image: gradle:7.6-jdk17-focal
     volumes:
       - name: build-output
         path: /tmp/build/jar/
@@ -18,10 +19,12 @@ steps:
       ARTEFACTS_PASSWORD:
         from_secret: ARTEFACTS_PASSWORD
     commands:
+      - apt-get update && apt-get install -y curl
       - gradle execJar publish
       - cp ./build/libs/* /tmp/build/jar/
     when:
       event: tag
+
   - name: release
     image: plugins/github-release
     volumes:

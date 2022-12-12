@@ -1,6 +1,5 @@
 package net.shrimpworks.mes;
 
-import java.beans.ConstructorProperties;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -22,6 +21,7 @@ import io.redisearch.client.Client;
 import io.undertow.Handlers;
 import io.undertow.Undertow;
 import io.undertow.predicate.Predicate;
+import io.undertow.server.BlockingHttpExchange;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
 import io.undertow.server.handlers.ResponseCodeHandler;
@@ -160,8 +160,7 @@ public class API implements Closeable {
 
 			exchange.dispatch(() -> {
 				logger.info("Adding document batch to the index");
-				exchange.startBlocking();
-				try {
+				try (BlockingHttpExchange ex = exchange.startBlocking()) {
 					AddRequest req = JacksonMapper.JSON.object(exchange.getInputStream(), AddRequest.class);
 					Document[] docs = req.docs.stream()
 											  .map(AddDocument::toDocument)
@@ -177,8 +176,6 @@ public class API implements Closeable {
 				} catch (IOException e) {
 					logger.error("Failed to process request", e);
 					exchange.setStatusCode(StatusCodes.INTERNAL_SERVER_ERROR);
-				} finally {
-					exchange.endExchange();
 				}
 			});
 		};
@@ -190,8 +187,7 @@ public class API implements Closeable {
 
 			exchange.dispatch(() -> {
 				logger.info("Adding document to the index");
-				exchange.startBlocking();
-				try {
+				try (BlockingHttpExchange ex = exchange.startBlocking()) {
 					Document doc = JacksonMapper.JSON.object(exchange.getInputStream(), AddDocument.class).toDocument();
 					boolean result = client.addDocument(doc, new AddOptions().setReplacementPolicy(AddOptions.ReplacementPolicy.PARTIAL));
 
@@ -202,38 +198,21 @@ public class API implements Closeable {
 				} catch (IOException e) {
 					logger.error("Failed to process request", e);
 					exchange.setStatusCode(StatusCodes.INTERNAL_SERVER_ERROR);
-				} finally {
-					exchange.endExchange();
 				}
 			});
 		};
 	}
 
-	public static class AddRequest {
+	public record AddRequest(
+		List<AddDocument> docs
+	) {}
 
-		public final List<AddDocument> docs;
-
-		@ConstructorProperties("docs")
-		public AddRequest(List<AddDocument> docs) {
-			this.docs = docs;
-		}
-	}
-
-	public static class AddDocument {
-
-		public final String id;
-		public final Map<String, Object> fields;
+	public record AddDocument(
+		String id,
+		Map<String, Object> fields,
 		@JsonProperty(defaultValue = "1")
-		public final double score;
-		public final byte[] payload;
-
-		@ConstructorProperties({ "id", "fields", "score", "payload" })
-		public AddDocument(String id, Map<String, Object> fields, double score, byte[] payload) {
-			this.id = id;
-			this.fields = fields;
-			this.score = score;
-			this.payload = payload;
-		}
+		double score,
+		byte[] payload) {
 
 		public Document toDocument() {
 			return new Document(id, fields, score, payload);
@@ -251,19 +230,7 @@ public class API implements Closeable {
 		}
 	}
 
-	public static class SearchResults {
-
-		public final List<AddDocument> docs;
-		public final long totalResults;
-		public final int offset;
-		public final int limit;
-
-		public SearchResults(List<AddDocument> docs, long totalResults, int offset, int limit) {
-			this.docs = docs;
-			this.totalResults = totalResults;
-			this.offset = offset;
-			this.limit = limit;
-		}
+	public record SearchResults(List<AddDocument> docs, long totalResults, int offset, int limit) {
 
 		public static SearchResults fromSearchResult(SearchResult result, int offset, int limit) {
 			return new SearchResults(

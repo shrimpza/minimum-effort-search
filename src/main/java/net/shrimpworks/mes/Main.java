@@ -1,10 +1,8 @@
 package net.shrimpworks.mes;
 
-import java.beans.ConstructorProperties;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.InetSocketAddress;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -36,7 +34,7 @@ public class Main {
 
 		Path configPath = Paths.get(args[0]).toAbsolutePath();
 		if (!Files.exists(configPath) || !Files.isRegularFile(configPath)) {
-			System.err.printf("Config file %s does not exist%n", configPath.toString());
+			System.err.printf("Config file %s does not exist%n", configPath);
 			System.exit(3);
 		} else {
 			System.out.printf("Using configuration in file %s%n", configPath);
@@ -52,9 +50,9 @@ public class Main {
 			if (je.getMessage().contains("already exists")) {
 				System.out.printf("Index %s already exists, updating%n", config.index);
 				// if the index already exists, we can make an attempt at adding fields (there's no api for deleting fields)
-				List<List<Object>> fields = (List<List<Object>>)client.getInfo().get("fields");
+				List<List<Object>> fields = (List<List<Object>>)client.getInfo().get("attributes");
 				Set<String> fieldNames = fields.stream()
-											   .map(f -> new String((byte[])f.get(0), StandardCharsets.UTF_8))
+											   .map(f -> (String)f.get(1))
 											   .collect(Collectors.toSet());
 				Schema.Field[] newFields = config.schema.fields.stream()
 															   .filter(f -> !fieldNames.contains(f.name))
@@ -93,38 +91,19 @@ public class Main {
 		out.println(JacksonMapper.YAML.string(config));
 	}
 
-	public static class Config {
+	public record Config(
+		String index,
+		String redisearch,
+		String bindAddress,
+		String rootPath,
+		String corsAllowOrigins,
+		String submissionToken,
+		RediSearchSchema schema
+	) {}
 
-		public final String index;
-		public final String redisearch;
-		public final String bindAddress;
-		public final String rootPath;
-		public final String corsAllowOrigins;
-		public final String submissionToken;
-		public final RediSearchSchema schema;
-
-		@ConstructorProperties({ "index", "redisearch", "bindAddress", "rootPath", "corsAllowOrigin", "submissionToken", "schema" })
-		public Config(String index, String redisearch, String bindAddress, String rootPath, String corsAllowOrigin,
-					  String submissionToken,
-					  RediSearchSchema schema) {
-			this.index = index;
-			this.redisearch = redisearch;
-			this.bindAddress = bindAddress;
-			this.rootPath = rootPath;
-			this.corsAllowOrigins = corsAllowOrigin;
-			this.submissionToken = submissionToken;
-			this.schema = schema;
-		}
-	}
-
-	public static class RediSearchSchema {
-
-		public Set<RediSearchField> fields;
-
-		@ConstructorProperties("fields")
-		public RediSearchSchema(Set<RediSearchField> fields) {
-			this.fields = fields;
-		}
+	public record RediSearchSchema(
+		Set<RediSearchField> fields
+	) {
 
 		public Schema toSchema() {
 			Schema schema = new Schema();
@@ -133,45 +112,21 @@ public class Main {
 		}
 	}
 
-	public static class RediSearchField {
-
-		public final Schema.FieldType type;
-		public final String name;
-
-		public final boolean sortable;
-		public final boolean noIndex;
-
-		@JsonProperty(defaultValue = "1")
-		public final double weight;
-		public final boolean noStem;
-
-		@JsonInclude(value = JsonInclude.Include.NON_EMPTY, content = JsonInclude.Include.NON_NULL)
-		public final String separator;
-
-		@ConstructorProperties({ "type", "name", "sortable", "noIndex", "weight", "noStem", "separator" })
-		public RediSearchField(
-			Schema.FieldType type, String name, boolean sortable, boolean noIndex, double weight, boolean noStem, String separator
-		) {
-			this.type = type;
-			this.name = name;
-			this.sortable = sortable;
-			this.noIndex = noIndex;
-			this.weight = weight;
-			this.noStem = noStem;
-			this.separator = separator;
-		}
+	public record RediSearchField(
+		Schema.FieldType type,
+		String name,
+		boolean sortable,
+		boolean noIndex,
+		@JsonProperty(defaultValue = "1") double weight, boolean noStem,
+		@JsonInclude(value = JsonInclude.Include.NON_EMPTY, content = JsonInclude.Include.NON_NULL) String separator
+	) {
 
 		public Schema.Field toField() {
-			switch (type) {
-				case FullText:
-					return new Schema.TextField(name, weight, sortable, noStem, noIndex);
-				case Tag:
-					return new Schema.TagField(name, separator, sortable);
-				case Numeric:
-				case Geo:
-				default:
-					return new Schema.Field(name, type, sortable, noIndex);
-			}
+			return switch (type) {
+				case FullText -> new Schema.TextField(name, weight, sortable, noStem, noIndex);
+				case Tag -> new Schema.TagField(name, separator, sortable);
+				default /* Numeric, Geo */ -> new Schema.Field(name, type, sortable, noIndex);
+			};
 		}
 	}
 }

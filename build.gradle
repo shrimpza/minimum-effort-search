@@ -6,12 +6,12 @@ plugins {
 }
 
 group = 'net.shrimpworks'
-version = "1.2"
+version = "1.3"
 
 mainClassName = 'net.shrimpworks.mes.Main'
 
 compileJava {
-	options.release = 11
+	options.release = 17
 }
 
 if (System.getenv().containsKey("DRONE_BUILD_NUMBER")) {
@@ -47,16 +47,16 @@ publishing {
 }
 
 dependencies {
-	implementation 'com.redislabs:jredisearch:2.0.0'
-	implementation 'io.undertow:undertow-core:2.2.3.Final'
+	implementation 'com.redislabs:jredisearch:2.2.0'
+	implementation 'io.undertow:undertow-core:2.3.0.Final'
 
-	implementation 'com.fasterxml.jackson.core:jackson-databind:2.12.0'
-	implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.12.0'
+	implementation 'com.fasterxml.jackson.core:jackson-databind:2.14.0'
+	implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.14.0'
 
-	implementation 'org.slf4j:slf4j-api:1.7.30'
-	implementation 'org.slf4j:slf4j-simple:1.7.30'
+	implementation 'org.slf4j:slf4j-api:2.0.5'
+	implementation 'org.slf4j:slf4j-simple:2.0.5'
 
-	testImplementation 'org.junit.jupiter:junit-jupiter:5.5.2'
+	testImplementation 'org.junit.jupiter:junit-jupiter:5.9.0'
 }
 
 jar {
@@ -70,6 +70,10 @@ jar {
 }
 
 task execJar(type: Jar) {
+	// exclude jar signatures - else it invalidates our fat jar
+	exclude('META-INF/*.RSA', 'META-INF/*.SF', 'META-INF/*.DSA')
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
 	archiveClassifier = "exec"
 	archiveFileName = "${archiveBaseName.get()}-${archiveClassifier.get()}.${archiveExtension.get()}"
 	from sourceSets.main.output
