@@ -16,6 +16,6 @@ public class MainTest {
 		Main.sampleConfig(new PrintStream(os));
 
 		Main.Config config = JacksonMapper.YAML.object(os.toByteArray(), Main.Config.class);
-		assertEquals("example", config.index);
+		assertEquals("example", config.index());
 	}
 }
