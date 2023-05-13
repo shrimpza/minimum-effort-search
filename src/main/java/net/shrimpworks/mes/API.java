@@ -13,11 +13,6 @@ import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonParseException;
-import io.redisearch.Document;
-import io.redisearch.Query;
-import io.redisearch.SearchResult;
-import io.redisearch.client.AddOptions;
-import io.redisearch.client.Client;
 import io.undertow.Handlers;
 import io.undertow.Undertow;
 import io.undertow.predicate.Predicate;
@@ -32,7 +27,11 @@ import io.undertow.util.StatusCodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xnio.Options;
+import redis.clients.jedis.JedisPooled;
 import redis.clients.jedis.exceptions.JedisDataException;
+import redis.clients.jedis.search.Document;
+import redis.clients.jedis.search.Query;
+import redis.clients.jedis.search.SearchResult;
 
 public class API implements Closeable {
 
@@ -46,25 +45,31 @@ public class API implements Closeable {
 	private static final String HTTP_ADD = "/index/add";
 	private static final String HTTP_ADD_BATCH = "/index/addBatch";
 
+	private final Main.Config config;
+
 	private final Undertow server;
-	private final Client client;
-	private final String allowOrigins;
+	private final JedisPooled client;
 
-	public API(InetSocketAddress bindAddress, String rootPath, Client client, String allowOrigin, String submissionToken) {
+	public API(Main.Config config, JedisPooled client) {
+		this.config = config;
 		this.client = client;
-		this.allowOrigins = allowOrigin;
 
-		Predicate tokenCheck = ex -> {
+		final String[] bind = config.bindAddress().split(":");
+		final InetSocketAddress bindAddress = InetSocketAddress.createUnresolved(bind[0], Integer.parseInt(bind[1]));
+
+		final Predicate tokenCheck = ex -> {
 			String auth = Optional.ofNullable(ex.getRequestHeaders().getFirst("Authorization")).orElse("");
-			return (auth.equals(submissionToken) || auth.equals("bearer " + submissionToken));
+			return (auth.equals(config.submissionToken()) || auth.equals("bearer " + config.submissionToken()));
 		};
 
-		HttpHandler handlers = Handlers.routing()
-									   .add("GET", rootPath + HTTP_STATUS, statusHandler())
-									   .add("GET", rootPath + HTTP_SEARCH, searchHandler())
-									   .add("OPTIONS", rootPath + HTTP_SEARCH, corsOptionsHandler("GET, OPTIONS"))
-									   .add("POST", rootPath + HTTP_ADD, orUnauthorised(tokenCheck, addHandler()))
-									   .add("POST", rootPath + HTTP_ADD_BATCH, orUnauthorised(tokenCheck, addBatchHandler()));
+		final HttpHandler handlers = Handlers.routing()
+											 .add("GET", config.rootPath() + HTTP_STATUS, statusHandler())
+											 .add("GET", config.rootPath() + HTTP_SEARCH, searchHandler())
+											 .add("OPTIONS", config.rootPath() + HTTP_SEARCH,
+												  corsOptionsHandler(config.corsAllowOrigins(), "GET, OPTIONS"))
+											 .add("POST", config.rootPath() + HTTP_ADD, orUnauthorised(tokenCheck, addHandler()))
+											 .add("POST", config.rootPath() + HTTP_ADD_BATCH,
+												  orUnauthorised(tokenCheck, addBatchHandler()));
 
 		// provides deflate and gzip encoding on handlers it wraps
 		HttpHandler encodingHandler = new EncodingHandler.Builder().build(null).wrap(handlers);
@@ -92,14 +97,14 @@ public class API implements Closeable {
 		this.server.stop();
 	}
 
-	private HttpHandler corsOptionsHandler(String methods) {
+	private HttpHandler corsOptionsHandler(String allowOrigins, String methods) {
 		return (exchange) -> {
-			corsHeaders(exchange, methods);
+			corsHeaders(exchange, allowOrigins, methods);
 			exchange.getResponseSender().close();
 		};
 	}
 
-	private void corsHeaders(HttpServerExchange exchange, String methods) {
+	private void corsHeaders(HttpServerExchange exchange, String allowOrigins, String methods) {
 		exchange.getResponseHeaders()
 				.put(new HttpString("Access-Control-Allow-Origin"), allowOrigins)
 				.put(new HttpString("Access-Control-Allow-Methods"), methods);
@@ -131,13 +136,15 @@ public class API implements Closeable {
 													   .getFirst());
 
 			exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
-			corsHeaders(exchange, "GET, OPTIONS");
+			corsHeaders(exchange, config.corsAllowOrigins(), "GET, OPTIONS");
 
-			// attempt to serve serve from storage, otherwise hit the monitor directly
 			exchange.dispatch(() -> {
 				logger.info("Searching for query {}", query);
 				try {
-					SearchResult searchResult = client.search(new Query(query).limit(offset, limit).setWithScores());
+					SearchResult searchResult = client.ftSearch(config.index(),
+																new Query(query)
+																	.limit(offset, limit)
+																	.setWithScores());
 					exchange.getResponseSender().send(
 						JacksonMapper.JSON.string(SearchResults.fromSearchResult(searchResult, offset, limit))
 					);
@@ -162,11 +169,9 @@ public class API implements Closeable {
 				logger.info("Adding document batch to the index");
 				try (BlockingHttpExchange ex = exchange.startBlocking()) {
 					AddRequest req = JacksonMapper.JSON.object(exchange.getInputStream(), AddRequest.class);
-					Document[] docs = req.docs.stream()
-											  .map(AddDocument::toDocument)
-											  .toArray(Document[]::new);
-					boolean[] results = client.addDocuments(new AddOptions().setReplacementPolicy(AddOptions.ReplacementPolicy.PARTIAL),
-															docs);
+
+					Boolean[] results = req.docs.stream().map(this::addDocument).toArray(Boolean[]::new);
+
 					int ok = 0;
 					for (boolean b : results) if (b) ok++;
 
@@ -188,10 +193,9 @@ public class API implements Closeable {
 			exchange.dispatch(() -> {
 				logger.info("Adding document to the index");
 				try (BlockingHttpExchange ex = exchange.startBlocking()) {
-					Document doc = JacksonMapper.JSON.object(exchange.getInputStream(), AddDocument.class).toDocument();
-					boolean result = client.addDocument(doc, new AddOptions().setReplacementPolicy(AddOptions.ReplacementPolicy.PARTIAL));
+					AddDocument doc = JacksonMapper.JSON.object(exchange.getInputStream(), AddDocument.class);
 
-					exchange.getResponseSender().send(JacksonMapper.JSON.string(result));
+					exchange.getResponseSender().send(JacksonMapper.JSON.string(addDocument(doc)));
 				} catch (JsonParseException e) {
 					logger.error("Failed to parse JSON", e);
 					exchange.setStatusCode(StatusCodes.BAD_REQUEST);
@@ -201,6 +205,14 @@ public class API implements Closeable {
 				}
 			});
 		};
+	}
+
+	private boolean addDocument(AddDocument doc) {
+		// convert from <string, object> to hset's required <string, string>...
+		HashMap<String, String> fields = new HashMap<>();
+		doc.fields.forEach((k, v) -> fields.put(k, v.toString()));
+
+		return client.hset(config.prefix() + doc.id, fields) > 0;
 	}
 
 	public record AddRequest(
@@ -234,8 +246,8 @@ public class API implements Closeable {
 
 		public static SearchResults fromSearchResult(SearchResult result, int offset, int limit) {
 			return new SearchResults(
-				result.docs.stream().map(AddDocument::fromDocument).collect(Collectors.toList()),
-				result.totalResults,
+				result.getDocuments().stream().map(AddDocument::fromDocument).collect(Collectors.toList()),
+				result.getTotalResults(),
 				offset, limit);
 		}
 	}

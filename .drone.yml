@@ -4,12 +4,12 @@ type: docker
 
 steps:
   - name: test
-    image: gradle:7.6-jdk17-focal
+    image: gradle:8.1.1-jdk17-jammy
     commands:
       - gradle test
 
   - name: publish
-    image: gradle:7.6-jdk17-focal
+    image: gradle:8.1.1-jdk17-jammy
     volumes:
       - name: build-output
         path: /tmp/build/jar/
