@@ -1,12 +1,12 @@
 # Minimum Effort Search
 
 A simple REST service exposing some RedisSearch functionality to support
-simple self-hosted site search functionality.
+simple self-hosted full-text search functionality.
 
 ## Runtime Requirements
 
 - Java 17 JRE
-- A [RediSearch](https://oss.redislabs.com/redisearch/) instance to connect to
+- A [RediSearch](https://redis.io/docs/stack/search/) instance to connect to
 
 ## Build
 
@@ -57,6 +57,7 @@ file.
     "title": "Blue T-Shirt",
     "body": "A very basic blue t-shirt you can wear",
     "price": 100,
+    "url": "my.site/shirts/1",
     "tags": "shirt,blue,clothing"
   }
 }
@@ -107,6 +108,7 @@ Parameters:
         "title": "Blue T-Shirt",
         "body": "A very basic blue t-shirt you can wear",
         "price": 100,
+        "url": "my.site/shirts/1",
         "tags": "shirt,blue,clothing"
       }
     }

@@ -15,6 +15,8 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import redis.clients.jedis.DefaultJedisClientConfig;
+import redis.clients.jedis.HostAndPort;
 import redis.clients.jedis.JedisPooled;
 import redis.clients.jedis.exceptions.JedisDataException;
 import redis.clients.jedis.search.IndexDefinition;
@@ -35,25 +37,27 @@ public class Main {
 
 		Path configPath = Paths.get(args[0]).toAbsolutePath();
 		if (!Files.exists(configPath) || !Files.isRegularFile(configPath)) {
-			System.err.printf("Config file %s does not exist%n", configPath);
+			logger.error("Config file {} does not exist", configPath);
 			System.exit(3);
 		} else {
-			System.out.printf("Using configuration in file %s%n", configPath);
+			logger.info("Using configuration in file {}", configPath);
 		}
 
 		Config config = JacksonMapper.YAML.object(configPath, Config.class);
-		String[] redis = config.redisHost.split(":");
-		JedisPooled client = new JedisPooled(redis[0], redis.length > 1 ? Integer.parseInt(redis[1]) : 6379);
+		JedisPooled client = new JedisPooled(
+			HostAndPort.from(config.redisHost),
+			DefaultJedisClientConfig.builder().timeoutMillis(config.redisTimeoutMillis).build()
+		);
 		try {
 			client.ftCreate(
 				config.index,
 				IndexOptions.defaultOptions().setDefinition(new IndexDefinition().setPrefixes(config.prefix)),
 				config.schema.toSchema()
 			);
-			System.out.printf("Created index %s%n", config.index);
+			logger.info("Created index {}", config.index);
 		} catch (JedisDataException je) {
 			if (je.getMessage().contains("already exists")) {
-				System.out.printf("Index %s already exists, updating%n", config.index);
+				logger.info("Index {} already exists, updating", config.index);
 				// if the index already exists, we can make an attempt at adding fields (there's no api for deleting fields)
 				List<List<Object>> fields = (List<List<Object>>)client.ftInfo(config.index).get("attributes");
 				Set<String> fieldNames = fields.stream()
@@ -83,7 +87,7 @@ public class Main {
 	}
 
 	public static void sampleConfig(PrintStream out) throws IOException {
-		Config config = new Config("example", "ex:", "localhost:6379", "0.0.0.0:8080", "", "*", UUID.randomUUID().toString(),
+		Config config = new Config("example", "ex:", "localhost:6379", 5000, "0.0.0.0:8080", "", "*", UUID.randomUUID().toString(),
 								   new RediSearchSchema(Set.of(
 									   new RediSearchField(Schema.FieldType.TEXT, "title", true, false, 5.0, false, null),
 									   new RediSearchField(Schema.FieldType.TEXT, "body", false, false, 1.0, false, null),
@@ -97,6 +101,7 @@ public class Main {
 		String index,
 		String prefix,
 		String redisHost,
+		int redisTimeoutMillis,
 		String bindAddress,
 		String rootPath,
 		String corsAllowOrigins,
