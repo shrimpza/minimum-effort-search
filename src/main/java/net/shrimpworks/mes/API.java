@@ -139,7 +139,6 @@ public class API implements Closeable {
 			corsHeaders(exchange, config.corsAllowOrigins(), "GET, OPTIONS");
 
 			exchange.dispatch(() -> {
-				logger.info("Searching for query {}", query);
 				try {
 					SearchResult searchResult = client.ftSearch(config.index(),
 																new Query(query)
@@ -148,11 +147,12 @@ public class API implements Closeable {
 					exchange.getResponseSender().send(
 						JacksonMapper.JSON.string(SearchResults.fromSearchResult(searchResult, offset, limit))
 					);
+					logger.info("Query '{}' returned {} results", query, searchResult.getTotalResults());
 				} catch (JedisDataException e) {
-					logger.error("Search failure", e);
+					logger.error("Query '{}' search failure", query, e);
 					exchange.setStatusCode(StatusCodes.INTERNAL_SERVER_ERROR);
 				} catch (IOException e) {
-					logger.error("Failed to process request", e);
+					logger.error("Query '{}' request failure", query, e);
 					exchange.setStatusCode(StatusCodes.INTERNAL_SERVER_ERROR);
 				} finally {
 					exchange.endExchange();
