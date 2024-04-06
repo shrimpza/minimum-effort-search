@@ -27,6 +27,7 @@ import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
@@ -239,11 +240,12 @@ public interface JacksonMapper {
 		private final SimpleModule module = new SimpleModule();
 
 		BaseMapper(JsonFactory jsonFactory) {
-			mapper = new ObjectMapper(jsonFactory);
-			mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-			mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
-			mapper.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
-			mapper.configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true);
+			mapper = JsonMapper.builder(jsonFactory)
+							   .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+							   .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
+							   .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
+							   .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true)
+							   .build();
 
 			addDeserializer(BigDecimal.class, new BigDecimalDeserializer(mapper));
 

@@ -222,12 +222,10 @@ public class API implements Closeable {
 	public record AddDocument(
 		String id,
 		Map<String, Object> fields,
-		@JsonProperty(defaultValue = "1")
-		double score,
-		byte[] payload) {
+		@JsonProperty(defaultValue = "1") double score) {
 
 		public Document toDocument() {
-			return new Document(id, fields, score, payload);
+			return new Document(id, fields, score);
 		}
 
 		public static AddDocument fromDocument(Document doc) {
@@ -236,8 +234,7 @@ public class API implements Closeable {
 			return new AddDocument(
 				doc.getId(),
 				fields,
-				doc.getScore(),
-				doc.getPayload()
+				doc.getScore()
 			);
 		}
 	}

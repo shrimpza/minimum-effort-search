@@ -68,7 +68,7 @@ public class Main {
 															   .map(RediSearchField::toField)
 															   .toArray(Schema.Field[]::new);
 				if (newFields.length > 0) {
-					logger.info("Adding new fields to index: {}", Arrays.stream(newFields).map(f -> f.name).collect(Collectors.joining()));
+					logger.info("Adding new fields to index: {}", Arrays.stream(newFields).map(f -> f.toString()).collect(Collectors.joining()));
 					client.ftAlter(config.index, newFields);
 				}
 			} else {

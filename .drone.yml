@@ -4,24 +4,25 @@ type: docker
 
 steps:
   - name: test
-    image: gradle:8.1.1-jdk17-jammy
+    image: gradle:8.7-jdk17-jammy
     commands:
-      - gradle test
+      - export BUILD_NUMBER=${DRONE_BUILD_NUMBER}
+      - gradle test --no-daemon
 
   - name: publish
-    image: gradle:8.1.1-jdk17-jammy
+    image: gradle:8.7-jdk17-jammy
     volumes:
       - name: build-output
-        path: /tmp/build/jar/
+        path: /tmp/build/
     environment:
       ARTEFACTS_USER:
         from_secret: ARTEFACTS_USER
       ARTEFACTS_PASSWORD:
         from_secret: ARTEFACTS_PASSWORD
     commands:
-      - apt-get update && apt-get install -y curl
-      - gradle execJar publish
-      - cp ./build/libs/* /tmp/build/jar/
+      - export BUILD_NUMBER=${DRONE_BUILD_NUMBER}
+      - gradle --no-daemon --build-cache jlinkTar publish
+      - cp ./build/minimum-effort-search.tgz /tmp/build/minimum-effort-search.tgz
     when:
       event: tag
 
@@ -29,11 +30,11 @@ steps:
     image: plugins/github-release
     volumes:
       - name: build-output
-        path: /tmp/build/jar/
+        path: /tmp/build/
     settings:
       api_key:
         from_secret: GH_TOKEN
-      files: /tmp/build/jar/*
+      files: /tmp/build/minimum-effort-search.tgz
     when:
       event: tag
 
