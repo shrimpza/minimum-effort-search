@@ -10,14 +10,15 @@ functionality to support self-hosted full-text search functionality.
 
 ## Build
 
-The project is built using Gradle and a Java 17 JDK:
+The project is built using Gradle and a Java 21 JDK:
 
 ```
 $ ./gradlew jlinkTar
 ```
 
 This generates a release .tgz archive in the `build/` directory which may be
-used to run the service.
+used to run the service. A JRE is not needed at runtime, since this builds a
+stand-alone distribution.
 
 ## Configuration and Running
 
@@ -74,14 +75,14 @@ file.
     "score": 1.0,
     "fields": {
       "title": "Jean Pant",
-      ...
+      "more": "values"
     }
   },
   {
     "id": "3",
     "fields": {
       "title": "Rooi Rokkie",
-      ...
+      "other": "fields"
     }
   }
 ]
