@@ -33,7 +33,7 @@ bin/minimum-effort-search > config.yml
 The above will write the file `config.yml` with some example parameters which
 you may customise.
 
-Thereafter, run the service with the config file as the first parameter:
+Thereafter, run the service, passing the config file as the first parameter:
 
 ```
 bin/minimum-effort-search config.yml
