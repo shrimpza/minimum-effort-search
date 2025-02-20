@@ -1,4 +1,4 @@
-open module shrimpworks.redisearch {
+open module shrimpworks.mes {
 	requires java.base;
 	requires java.net.http;
 	requires java.desktop;
