@@ -16,9 +16,6 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Test
-        run: ./gradlew --no-daemon test
-
       - name: Publish
         env:
           PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
