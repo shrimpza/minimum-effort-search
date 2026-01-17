@@ -94,14 +94,14 @@ artifacts {
 }
 
 dependencies {
-	implementation 'redis.clients:jedis:5.2.0'
-	implementation 'io.undertow:undertow-core:2.3.21.Final'
+	implementation 'redis.clients:jedis:7.2.1'
+	implementation 'io.undertow:undertow-core:2.3.22.Final'
 
 	implementation 'com.fasterxml.jackson.core:jackson-databind:2.20.1'
 	implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.20.1'
 
-	implementation 'org.slf4j:slf4j-api:2.0.16'
-	implementation 'org.slf4j:slf4j-simple:2.0.16'
+	implementation 'org.slf4j:slf4j-api:2.0.17'
+	implementation 'org.slf4j:slf4j-simple:2.0.17'
 
 	testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
 }
