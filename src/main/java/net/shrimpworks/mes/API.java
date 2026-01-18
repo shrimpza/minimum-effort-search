@@ -143,7 +143,6 @@ public class API implements Closeable {
 					SearchResult searchResult = client.ftSearch(config.index(),
 																new Query(query)
 																	.limit(offset, limit)
-																	.setSortBy("score", false)
 																	.setWithScores());
 					exchange.getResponseSender().send(
 						JacksonMapper.JSON.string(SearchResults.fromSearchResult(searchResult, offset, limit))
