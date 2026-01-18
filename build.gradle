@@ -50,6 +50,7 @@ def tarTask = tasks.register('jlinkTar', Tar) {
 	archiveFileName = "${jlink.imageName.get()}.tgz"
 	destinationDirectory = layout.buildDirectory
 	compression = Compression.GZIP
+	filePermissions {}
 
 	into("${jlink.imageName.get()}") {
 		from jlink.imageDir
@@ -95,7 +96,7 @@ artifacts {
 
 dependencies {
 	implementation 'redis.clients:jedis:7.2.1'
-	implementation 'io.undertow:undertow-core:2.3.22.Final'
+	implementation 'io.undertow:undertow-core:2.3.18.Final'
 
 	implementation 'com.fasterxml.jackson.core:jackson-databind:2.20.1'
 	implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.20.1'
